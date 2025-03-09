@@ -1,34 +1,10 @@
 from src.backbones import utae, unet3d, convlstm, convgru, fpn
 from src.panoptic import paps
-from src.backbones.swinutae import SwinUTAE  # Import the new SwinUTAE module
 
 
 def get_model(config, mode="semantic"):
     if mode == "semantic":
-        if config.model == "swinutae":
-            model = SwinUTAE(
-                input_dim=10,
-                encoder_dims=config.encoder_widths,
-                decoder_dims=config.decoder_widths,
-                out_conv=config.out_conv,
-                window_size=config.window_size if hasattr(config, "window_size") else 7,
-                input_resolution=(128, 128),
-                num_heads=config.num_heads if hasattr(config, "num_heads") else [3, 6, 12, 24],
-                mlp_ratio=config.mlp_ratio if hasattr(config, "mlp_ratio") else 4.0,
-                qkv_bias=config.qkv_bias if hasattr(config, "qkv_bias") else True,
-                qk_scale=config.qk_scale if hasattr(config, "qk_scale") else None,
-                drop_rate=config.drop_rate if hasattr(config, "drop_rate") else 0.0,
-                attn_drop_rate=config.attn_drop_rate if hasattr(config, "attn_drop_rate") else 0.0,
-                drop_path_rate=config.drop_path_rate if hasattr(config, "drop_path_rate") else 0.1,
-                agg_mode=config.agg_mode,
-                n_head=config.n_head,
-                d_model=config.d_model,
-                d_k=config.d_k,
-                encoder=False,
-                return_maps=False,
-                pad_value=config.pad_value,
-            )
-        elif config.model == "utae":
+        if config.model == "utae":
             model = utae.UTAE(
                 input_dim=10,
                 encoder_widths=config.encoder_widths,
@@ -115,30 +91,7 @@ def get_model(config, mode="semantic"):
             )
         return model
     elif mode == "panoptic":
-        if config.backbone == "swinutae":
-            model = SwinUTAE(
-                input_dim=10,
-                encoder_dims=config.encoder_widths,
-                decoder_dims=config.decoder_widths,
-                out_conv=config.out_conv,
-                window_size=config.window_size if hasattr(config, "window_size") else 7,
-                input_resolution=(128, 128),
-                num_heads=config.num_heads if hasattr(config, "num_heads") else [3, 6, 12, 24],
-                mlp_ratio=config.mlp_ratio if hasattr(config, "mlp_ratio") else 4.0,
-                qkv_bias=config.qkv_bias if hasattr(config, "qkv_bias") else True,
-                qk_scale=config.qk_scale if hasattr(config, "qk_scale") else None,
-                drop_rate=config.drop_rate if hasattr(config, "drop_rate") else 0.0,
-                attn_drop_rate=config.attn_drop_rate if hasattr(config, "attn_drop_rate") else 0.0,
-                drop_path_rate=config.drop_path_rate if hasattr(config, "drop_path_rate") else 0.1,
-                agg_mode=config.agg_mode,
-                n_head=config.n_head,
-                d_model=config.d_model,
-                d_k=config.d_k,
-                encoder=True,
-                return_maps=False,
-                pad_value=config.pad_value,
-            )
-        elif config.backbone == "utae":
+        if config.backbone == "utae":
             model = utae.UTAE(
                 input_dim=10,
                 encoder_widths=config.encoder_widths,

@@ -28,7 +28,7 @@ parser.add_argument(
     "--model",
     default="utae",
     type=str,
-    help="Type of architecture to use. Can be one of: (utae/unet3d/fpn/convlstm/convgru/uconvlstm/buconvlstm/swinutae)",
+    help="Type of architecture to use. Can be one of: (utae/unet3d/fpn/convlstm/convgru/uconvlstm/buconvlstm)",
 )
 ## U-TAE Hyperparameters
 parser.add_argument("--encoder_widths", default="[64,64,64,128]", type=str)
@@ -42,17 +42,6 @@ parser.add_argument("--encoder_norm", default="group", type=str)
 parser.add_argument("--n_head", default=16, type=int)
 parser.add_argument("--d_model", default=256, type=int)
 parser.add_argument("--d_k", default=4, type=int)
-
-# Swin Transformer parameters
-parser.add_argument("--window_size", default=7, type=int, help="Window size for Swin Transformer")
-parser.add_argument("--num_heads", default="[3,6,12,24]", type=str, help="Number of attention heads for each layer")
-parser.add_argument("--mlp_ratio", default=4.0, type=float, help="MLP ratio for Swin Transformer")
-parser.add_argument("--qkv_bias", default=True, type=bool, help="Use bias in QKV projection")
-parser.add_argument("--qk_scale", default=None, type=float, help="Override default qk scale")
-parser.add_argument("--drop_rate", default=0.0, type=float, help="Dropout rate")
-parser.add_argument("--attn_drop_rate", default=0.0, type=float, help="Attention dropout rate")
-parser.add_argument("--drop_path_rate", default=0.1, type=float, help="Drop path rate")
-
 
 # Set-up parameters
 parser.add_argument(
@@ -117,7 +106,7 @@ parser.add_argument(
     help="Do validation only after that many epochs.",
 )
 
-list_args = ["encoder_widths", "decoder_widths", "out_conv", "num_heads"]
+list_args = ["encoder_widths", "decoder_widths", "out_conv"]
 parser.set_defaults(cache=False)
 
 
