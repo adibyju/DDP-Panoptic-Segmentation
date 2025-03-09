@@ -410,6 +410,13 @@ def main(config):
 
 if __name__ == "__main__":
     config = parser.parse_args()
+    # Check if window size is an int
+    if not isinstance(config.window_size, int):
+        try:
+            config.window_size = int(config.window_size)  # Explicitly convert to int
+        except ValueError:
+            raise ValueError("window_size must be an integer.")
+    ###
     for k, v in vars(config).items():
         if k in list_args and v is not None:
             v = v.replace("[", "")

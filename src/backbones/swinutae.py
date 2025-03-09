@@ -71,6 +71,8 @@ class WindowAttention(nn.Module):
         self.scale = qk_scale or head_dim ** -0.5
 
         # define a parameter table of relative position bias
+        print(f"Window size type: {type(window_size)}") # before line 75 of swinutae.py
+
         self.relative_position_bias_table = nn.Parameter(
             torch.zeros((2 * window_size - 1) * (2 * window_size - 1), num_heads))  
 
