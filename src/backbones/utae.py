@@ -132,7 +132,7 @@ class UTAE(nn.Module):
         self.temporal_encoder = SwinTAE(
             in_channels=encoder_widths[-1],
             embed_dim=d_model,
-            depth=6,
+            depth=2,
             num_heads=n_head,
             window_size=8,
             return_att=True
