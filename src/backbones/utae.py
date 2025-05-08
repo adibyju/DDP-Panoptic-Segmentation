@@ -8,6 +8,7 @@ import torch.nn as nn
 
 from src.backbones.convlstm import ConvLSTM, BConvLSTM
 from src.backbones.ltae import LTAE2d
+from src.backbones.swintae import SwinTAE
 
 
 class UTAE(nn.Module):
@@ -118,14 +119,25 @@ class UTAE(nn.Module):
             )
             for i in range(self.n_stages - 1, 0, -1)
         )
-        self.temporal_encoder = LTAE2d(
+
+        # self.temporal_encoder = LTAE2d(
+        #     in_channels=encoder_widths[-1],
+        #     d_model=d_model, # Parameter of LTAE
+        #     n_head=n_head, # Number of heads in LTAE
+        #     mlp=[d_model, encoder_widths[-1]],
+        #     return_att=True,
+        #     d_k=d_k, # Key-Query space dimension
+        # )
+       
+        self.temporal_encoder = SwinTAE(
             in_channels=encoder_widths[-1],
-            d_model=d_model,
-            n_head=n_head,
-            mlp=[d_model, encoder_widths[-1]],
-            return_att=True,
-            d_k=d_k,
+            embed_dim=d_model,
+            depth=6,
+            num_heads=n_head,
+            window_size=8,
+            return_att=True
         )
+
         self.temporal_aggregator = Temporal_Aggregator(mode=agg_mode)
         self.out_conv = ConvBlock(nkernels=[decoder_widths[0]] + out_conv, padding_mode=padding_mode)
 
@@ -139,10 +151,18 @@ class UTAE(nn.Module):
         for i in range(self.n_stages - 1):
             out = self.down_blocks[i].smart_forward(feature_maps[-1])
             feature_maps.append(out)
+
+        # print()
+        # print("out before temporal encoding: ", out.shape)
+        # print("Starting temporal encoding...")    
         # TEMPORAL ENCODER
         out, att = self.temporal_encoder(
             feature_maps[-1], batch_positions=batch_positions, pad_mask=pad_mask
         )
+        # print("out after temporal encoding: ", out.shape)
+        # print("att after temporal encoding: ", att.shape)
+
+
         # SPATIAL DECODER
         if self.return_maps:
             maps = [out]
