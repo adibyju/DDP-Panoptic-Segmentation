@@ -26,9 +26,9 @@ parser = argparse.ArgumentParser()
 # Model parameters
 parser.add_argument(
     "--model",
-    default="swinutae",
+    default="utae",
     type=str,
-    help="Type of architecture to use. Can be one of: (utae/unet3d/fpn/convlstm/convgru/uconvlstm/buconvlstm/swinutae)",
+    help="Type of architecture to use. Can be one of: (utae/unet3d/fpn/convlstm/convgru/uconvlstm/buconvlstm/utae)",
 )
 ## U-TAE Hyperparameters
 parser.add_argument("--encoder_widths", default="[64,64,64,128]", type=str)
