@@ -584,14 +584,23 @@ class UTAE(nn.Module):
             # Update resolution for the next stage
             curr_resolution = (max(1, curr_resolution[0] // 2), max(1, curr_resolution[1] // 2))
 
-        # Temporal encoder (LTAE)
-        self.temporal_encoder = LTAE2d(
-            in_channels=self.encoder_widths[-1],
-            d_model=d_model,
-            n_head=n_head,
-            mlp=[d_model, self.encoder_widths[-1]],
-            return_att=True,
-            d_k=d_k,
+        # # Temporal encoder (LTAE)
+        # self.temporal_encoder = LTAE2d(
+        #     in_channels=self.encoder_widths[-1],
+        #     d_model=d_model,
+        #     n_head=n_head,
+        #     mlp=[d_model, self.encoder_widths[-1]],
+        #     return_att=True,
+        #     d_k=d_k,
+        # )
+
+        self.temporal_encoder = SwinTAE(
+            in_channels=encoder_widths[-1],
+            embed_dim=d_model,
+            depth=2,
+            num_heads=n_head,
+            window_size=8,
+            return_att=True
         )
 
         # Temporal aggregator

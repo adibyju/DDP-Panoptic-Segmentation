@@ -16,6 +16,9 @@ from src.learning.metrics import confusion_matrix_analysis
 from src.learning.miou import IoU
 from src import utils
 import torch.nn.functional as F
+from torchvision import transforms
+from torchvision.transforms import functional as TF
+import random
 
 class AverageMeter:
     """Computes and stores the average and current value"""
@@ -34,8 +37,62 @@ class AverageMeter:
     def value(self):
         return self.avg
 
+class RandomHorizontalFlip:
+    def __call__(self, img, mask):
+        if random.random() < 0.5:
+            return TF.hflip(img), TF.hflip(mask)
+        return img, mask
+
+class RandomVerticalFlip:
+    def __call__(self, img, mask):
+        if random.random() < 0.5:
+            return TF.vflip(img), TF.vflip(mask)
+        return img, mask
+
+class RandomRotation:
+    def __init__(self, degrees):
+        self.degrees = degrees
+
+    def __call__(self, img, mask):
+        angle = random.uniform(-self.degrees, self.degrees)
+        return TF.rotate(img, angle), TF.rotate(mask, angle)
+
+class MultispectralColorJitter:
+    def __init__(self, brightness=0.2, contrast=0.2):
+        self.brightness = brightness
+        self.contrast = contrast
+
+    def __call__(self, img, mask):
+        # Apply brightness and contrast adjustments to each channel independently
+        if random.random() < 0.5:
+            brightness_factor = random.uniform(1 - self.brightness, 1 + self.brightness)
+            img = img * brightness_factor
+        if random.random() < 0.5:
+            contrast_factor = random.uniform(1 - self.contrast, 1 + self.contrast)
+            mean = img.mean(dim=[-2, -1], keepdim=True)
+            img = (img - mean) * contrast_factor + mean
+        return img, mask
+
+class RandomErasing:
+    def __init__(self, p=0.2):
+        self.p = p
+
+    def __call__(self, img, mask):
+        if random.random() < self.p:
+            h, w = img.shape[-2:]
+            area = h * w
+            target_area = random.uniform(0.02, 0.2) * area
+            aspect_ratio = random.uniform(0.3, 3.0)
+            h_erase = int(round(np.sqrt(target_area * aspect_ratio)))
+            w_erase = int(round(np.sqrt(target_area / aspect_ratio)))
+            if h_erase < h and w_erase < w:
+                i = random.randint(0, h - h_erase)
+                j = random.randint(0, w - w_erase)
+                img[..., i:i+h_erase, j:j+w_erase] = 0
+        return img, mask
+
 class SwinForSemanticSegmentation(nn.Module):
-    def __init__(self, model_name, num_classes, pretrained=True):
+    def __init__(self, model_name, num_classes, pretrained=True, drop_rate=0.0, attn_drop_rate=0.0, drop_path_rate=0.0):
         super().__init__()
         # Load pre-trained Swin Transformer
         self.swin = timm.create_model(
@@ -44,7 +101,10 @@ class SwinForSemanticSegmentation(nn.Module):
             num_classes=0,  # Remove classification head
             in_chans=10,    # Accept 10-channel input
             features_only=True,
-            out_indices=(0, 1, 2, 3)
+            out_indices=(0, 1, 2, 3),
+            drop_rate=drop_rate,
+            attn_drop_rate=attn_drop_rate,
+            drop_path_rate=drop_path_rate
         )
         
         # Get the feature dimensions from the last stage
@@ -98,6 +158,15 @@ def train_epoch(model, loader, criterion, optimizer, device):
     loss_meter = AverageMeter()
     iou_meter = IoU(num_classes=args.num_classes, ignore_index=args.ignore_index)
     
+    # Data augmentation transforms
+    transforms_list = [
+        RandomHorizontalFlip(),
+        RandomVerticalFlip(),
+        RandomRotation(degrees=15),
+        MultispectralColorJitter(brightness=0.2, contrast=0.2),  # Using the new multispectral version
+        RandomErasing(p=0.2)
+    ]
+    
     for i, batch in enumerate(loader):
         (x, dates), y = batch
         if x.dim() == 5:
@@ -105,13 +174,23 @@ def train_epoch(model, loader, criterion, optimizer, device):
             x = x[:, t]  # shape: (B, C, H, W)
         y = y.long()
         
+        # Apply data augmentation
+        if model.training:
+            for transform in transforms_list:
+                x, y = transform(x, y)
+        
         x, y = x.to(device), y.to(device)
+        
+        # Clip values to valid range after augmentation
+        x = torch.clamp(x, min=0.0, max=1.0)
         
         optimizer.zero_grad()
         out = model(x)
         # Resize output to match target if needed
         if out.shape[-2:] != y.shape[-2:]:
             out = torch.nn.functional.interpolate(out, size=y.shape[-2:], mode='bilinear', align_corners=False)
+        
+        # Add label smoothing to loss
         loss = criterion(out, y)
         
         loss.backward()
@@ -209,19 +288,22 @@ def main(args):
         collate_fn=collate_central_timestamp
     )
     
-    # Model
+    # Model with increased regularization
     model = SwinForSemanticSegmentation(
         model_name=args.pretrained_model,
         num_classes=args.num_classes,
-        pretrained=True
+        pretrained=True,
+        drop_rate=0.1,  # Increased from 0.0
+        attn_drop_rate=0.1,  # Increased from 0.0
+        drop_path_rate=0.2  # Increased from 0.1
     ).to(device)
     
-    # Loss and optimizer
+    # Loss with label smoothing
     weights = torch.ones(args.num_classes, device=device)
     weights[args.ignore_index] = 0
-    criterion = nn.CrossEntropyLoss(weight=weights)
+    criterion = nn.CrossEntropyLoss(weight=weights, label_smoothing=0.1)
     
-    # Optimizer with different learning rates for different parts
+    # Optimizer with reduced learning rates
     encoder_params = []
     other_params = []
     for name, param in model.named_parameters():
@@ -231,11 +313,11 @@ def main(args):
             other_params.append(param)
     
     optimizer = torch.optim.AdamW([
-        {'params': encoder_params, 'lr': args.encoder_lr},
-        {'params': other_params, 'lr': args.lr}
+        {'params': encoder_params, 'lr': args.encoder_lr * 0.5},  # Reduced from 1e-5
+        {'params': other_params, 'lr': args.lr * 0.5}  # Reduced from 1e-4
     ], weight_decay=args.weight_decay)
     
-    # Learning rate scheduler
+    # Learning rate scheduler with warmup
     scheduler = CosineAnnealingWarmRestarts(
         optimizer,
         T_0=max(1, args.epochs // 3),
@@ -262,6 +344,8 @@ def main(args):
         
         # Update learning rate
         scheduler.step()
+
+        print("Hi: -> ", args.res_dir)
         
         # Save best model
         if val_metrics['miou'] > best_miou:
@@ -295,9 +379,9 @@ if __name__ == '__main__':
     # Training parameters
     parser.add_argument('--epochs', type=int, default=100)
     parser.add_argument('--batch_size', type=int, default=8)
-    parser.add_argument('--lr', type=float, default=1e-4,
+    parser.add_argument('--lr', type=float, default=5e-5,  # Reduced from 1e-4
                       help='Learning rate for non-encoder parameters')
-    parser.add_argument('--encoder_lr', type=float, default=1e-5,
+    parser.add_argument('--encoder_lr', type=float, default=5e-6,  # Reduced from 1e-5
                       help='Learning rate for encoder parameters')
     parser.add_argument('--weight_decay', type=float, default=0.01)
     parser.add_argument('--display_step', type=int, default=50)
