@@ -122,23 +122,23 @@ class UTAE(nn.Module):
             for i in range(self.n_stages - 1, 0, -1)
         )
 
-        self.temporal_encoder = LTAE2d(
-            in_channels=encoder_widths[-1],
-            d_model=d_model, # Parameter of LTAE
-            n_head=n_head, # Number of heads in LTAE
-            mlp=[d_model, encoder_widths[-1]],
-            return_att=True,
-            d_k=d_k, # Key-Query space dimension
-        )
-       
-        # self.temporal_encoder = SwinTAE(
+        # self.temporal_encoder = LTAE2d(
         #     in_channels=encoder_widths[-1],
-        #     embed_dim=d_model,
-        #     depth=2,
-        #     num_heads=n_head,
-        #     window_size=8,
-        #     return_att=True
+        #     d_model=d_model, # Parameter of LTAE
+        #     n_head=n_head, # Number of heads in LTAE
+        #     mlp=[d_model, encoder_widths[-1]],
+        #     return_att=True,
+        #     d_k=d_k, # Key-Query space dimension
         # )
+       
+        self.temporal_encoder = SwinTAE(
+            in_channels=encoder_widths[-1],
+            embed_dim=d_model,
+            depth=2,
+            num_heads=n_head,
+            window_size=8,
+            return_att=True
+        )
 
         self.temporal_aggregator = Temporal_Aggregator(mode=agg_mode)
         self.out_conv = ConvBlock(nkernels=[decoder_widths[0]] + out_conv, padding_mode=padding_mode)
