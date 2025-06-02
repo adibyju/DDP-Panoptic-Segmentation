@@ -432,6 +432,14 @@ class PatchMerging(nn.Module):
         return x
 
 
+def load_finetuned_swin_weights(swin_model, checkpoint_path):
+    checkpoint = torch.load(checkpoint_path, map_location='cpu')
+    state_dict = checkpoint['model_state_dict']
+    swin_state_dict = {k.replace('swin.', ''): v for k, v in state_dict.items() if k.startswith('swin.')}
+    missing, unexpected = swin_model.load_state_dict(swin_state_dict, strict=False)
+    print(f"Loaded Swin weights. Missing: {missing}, Unexpected: {unexpected}")
+
+
 class UTAE(nn.Module):
     def __init__(
         self,
@@ -459,7 +467,8 @@ class UTAE(nn.Module):
         drop_rate=0.,
         attn_drop_rate=0.,
         drop_path_rate=0.1,
-        output_size=128,  # Add output_size parameter to match the target resolution
+        output_size=128,
+        swin_weights_path=None,  # New argument for fine-tuned Swin weights
     ):
         """
         U-TAE architecture with Swin Transformer spatial encoder for satellite image time series.
@@ -584,26 +593,21 @@ class UTAE(nn.Module):
             # Update resolution for the next stage
             curr_resolution = (max(1, curr_resolution[0] // 2), max(1, curr_resolution[1] // 2))
 
+        # Load fine-tuned Swin weights if provided
+        if swin_weights_path is not None:
+            for encoder in self.swin_encoders:
+                if hasattr(encoder, 'load_state_dict'):
+                    load_finetuned_swin_weights(encoder, swin_weights_path)
+
         # Temporal encoder (LTAE)
-        # self.temporal_encoder = LTAE2d(
-        #     in_channels=self.encoder_widths[-1],
-        #     d_model=d_model,
-        #     n_head=n_head,
-        #     mlp=[d_model, self.encoder_widths[-1]],
-        #     return_att=True,
-        #     d_k=d_k,
-        # )
-
-        self.temporal_encoder = SwinTAE(
-            in_channels=encoder_widths[-1],
-            embed_dim=d_model,
-            depth=2,
-            num_heads=n_head,
-            window_size=8,
-            return_att=True
+        self.temporal_encoder = LTAE2d(
+            in_channels=self.encoder_widths[-1],
+            d_model=d_model,
+            n_head=n_head,
+            mlp=[d_model, self.encoder_widths[-1]],
+            return_att=True,
+            d_k=d_k,
         )
-
-        
 
         # Temporal aggregator
         self.temporal_aggregator = Temporal_Aggregator(mode=agg_mode)

@@ -46,6 +46,7 @@ def get_model(config, mode="semantic"):
                 return_maps=False,
                 pad_value=config.pad_value,
                 padding_mode=config.padding_mode,
+                swin_weights_path=getattr(config, 'swin_weights_path', None),
             )
         elif config.model == "unet3d":
             model = unet3d.UNet3D(
@@ -156,6 +157,7 @@ def get_model(config, mode="semantic"):
                 return_maps=False,
                 pad_value=config.pad_value,
                 padding_mode=config.padding_mode,
+                swin_weights_path=getattr(config, 'swin_weights_path', None),
             )
         elif config.backbone == "uconvlstm":
             model = utae.RecUNet(

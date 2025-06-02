@@ -116,6 +116,7 @@ parser.add_argument(
     type=int,
     help="Do validation only after that many epochs.",
 )
+parser.add_argument('--swin_weights_path', type=str, default=None, help='Path to fine-tuned Swin weights to use in UTAE')
 
 list_args = ["encoder_widths", "decoder_widths", "out_conv", "num_heads"]
 parser.set_defaults(cache=False)
